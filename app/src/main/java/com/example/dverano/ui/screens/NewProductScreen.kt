@@ -24,7 +24,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -38,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
@@ -50,22 +50,25 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.dverano.R
+import com.example.dverano.data.model.CATEGORIAS
+import com.example.dverano.data.model.Producto
+import com.example.dverano.ui.components.BarraSuperior
+import com.example.dverano.ui.components.ProductoImagen
+import com.example.dverano.ui.theme.BordeCampo
 import com.example.dverano.ui.theme.DVeranoTheme
-
-private val VerdeOscuro = Color(0xFF1B3A28)
-private val FondoPantalla = Color(0xFFF7F7F7)
-private val BordeCampo = Color(0xFFE0E0E0)
-private val TextoSecundario = Color(0xFF6B6B6B)
+import com.example.dverano.ui.theme.FondoPantalla
+import com.example.dverano.ui.theme.TextoSecundario
+import com.example.dverano.ui.theme.VerdeOscuro
+import com.example.dverano.ui.util.aPrecioOrNull
+import com.example.dverano.ui.util.esPrecioParcialValido
 
 @Composable
 fun NewProductScreen(
     modifier: Modifier = Modifier,
     onBack: () -> Unit,
-    onGuardarSuccess: () -> Unit,
+    onGuardar: (Producto) -> Unit,
 ) {
     val context = LocalContext.current
-
-    val categorias = listOf("Entradas", "Platos de fondo", "Bebidas", "Postres")
 
     var imagenUri by remember { mutableStateOf<Uri?>(null) }
     var nombre by remember { mutableStateOf("") }
@@ -82,7 +85,8 @@ fun NewProductScreen(
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
-        imagenUri = uri
+        // Si el usuario cancela, uri es null: conservamos la imagen anterior
+        if (uri != null) imagenUri = uri
     }
 
     val colorCampos = OutlinedTextFieldDefaults.colors(
@@ -97,29 +101,7 @@ fun NewProductScreen(
             .fillMaxSize()
             .background(FondoPantalla)
     ) {
-        // Barra superior
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color.White)
-                .padding(vertical = 8.dp, horizontal = 4.dp)
-        ) {
-            IconButton(
-                modifier = Modifier.align(Alignment.CenterStart),
-                onClick = onBack
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_back),
-                    contentDescription = "Volver",
-                )
-            }
-            Text(
-                modifier = Modifier.align(Alignment.Center),
-                text = "Nuevo producto",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-        }
+        BarraSuperior(titulo = "Nuevo producto", onBack = onBack)
 
         Column(
             modifier = Modifier
@@ -128,10 +110,12 @@ fun NewProductScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Column(
+            // Imagen
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(130.dp)
+                    .clip(RoundedCornerShape(12.dp))
                     .drawBehind {
                         drawRoundRect(
                             color = Color(0xFFBDBDBD),
@@ -147,23 +131,34 @@ fun NewProductScreen(
                             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                         )
                     },
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_camera),
-                    contentDescription = null,
-                    tint = VerdeOscuro,
-                )
-                Text(
-                    modifier = Modifier.padding(top = 8.dp),
-                    text = if (imagenUri == null) "Agregar imagen del producto" else "Imagen seleccionada",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = VerdeOscuro
-                )
+                if (imagenUri != null) {
+                    ProductoImagen(
+                        modifier = Modifier.fillMaxSize(),
+                        imagenUri = imagenUri,
+                        imagenRes = null,
+                        contentDescription = "Imagen del producto",
+                    )
+                } else {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_camera),
+                            contentDescription = null,
+                            tint = VerdeOscuro,
+                        )
+                        Text(
+                            modifier = Modifier.padding(top = 8.dp),
+                            text = "Agregar imagen del producto",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = VerdeOscuro
+                        )
+                    }
+                }
             }
 
+            // Nombre
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = "Nombre del producto",
@@ -175,15 +170,9 @@ fun NewProductScreen(
                     value = nombre,
                     onValueChange = {
                         nombre = it
-                        if (nombre.isNotBlank()) {
-                            errorNombre = false
-                        }
+                        if (it.isNotBlank()) errorNombre = false
                     },
-                    placeholder = {
-                        Text(
-                            text = "Ej. Ceviche de pescado"
-                        )
-                    },
+                    placeholder = { Text(text = "Ej. Ceviche de pescado") },
                     leadingIcon = {
                         Icon(
                             painter = painterResource(R.drawable.ic_food),
@@ -195,17 +184,12 @@ fun NewProductScreen(
                     colors = colorCampos,
                     isError = errorNombre,
                     supportingText = {
-                        if (errorNombre) {
-                            Text(
-                                text = "El nombre es obligatorio"
-                            )
-                        } else {
-                            null
-                        }
+                        if (errorNombre) Text(text = "El nombre es obligatorio")
                     },
                 )
             }
 
+            // Categoría
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = "Categoría",
@@ -218,11 +202,7 @@ fun NewProductScreen(
                         value = categoria,
                         onValueChange = {},
                         readOnly = true,
-                        placeholder = {
-                            Text(
-                                text = "Selecciona una categoría"
-                            )
-                        },
+                        placeholder = { Text(text = "Selecciona una categoría") },
                         leadingIcon = {
                             Icon(
                                 painter = painterResource(R.drawable.ic_menu),
@@ -240,13 +220,7 @@ fun NewProductScreen(
                         colors = colorCampos,
                         isError = errorCategoria,
                         supportingText = {
-                            if (errorCategoria) {
-                                Text(
-                                    text = "Selecciona una categoría"
-                                )
-                            } else {
-                                null
-                            }
+                            if (errorCategoria) Text(text = "Selecciona una categoría")
                         },
                     )
                     Box(
@@ -258,13 +232,9 @@ fun NewProductScreen(
                         expanded = categoriaExpandida,
                         onDismissRequest = { categoriaExpandida = false }
                     ) {
-                        categorias.forEach { item ->
+                        CATEGORIAS.forEach { item ->
                             DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        text = item
-                                    )
-                                },
+                                text = { Text(text = item) },
                                 onClick = {
                                     categoria = item
                                     errorCategoria = false
@@ -276,6 +246,7 @@ fun NewProductScreen(
                 }
             }
 
+            // Precio
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = "Precio (S/)",
@@ -286,47 +257,36 @@ fun NewProductScreen(
                     modifier = Modifier.fillMaxWidth(),
                     value = precio,
                     onValueChange = {
-                        precio = it
-                        if (precio.toDoubleOrNull() != null) {
-                            errorPrecio = false
+                        if (esPrecioParcialValido(it)) {
+                            precio = it
+                            val numero = it.aPrecioOrNull()
+                            if (numero != null && numero > 0.0) errorPrecio = false
                         }
                     },
-                    placeholder = {
-                        Text(
-                            text = "Ej. 25.00"
-                        )
-                    },
+                    placeholder = { Text(text = "Ej. 25.00") },
                     leadingIcon = {
                         Icon(
                             painter = painterResource(R.drawable.ic_card),
                             contentDescription = null,
                         )
                     },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Decimal
-                    ),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                     colors = colorCampos,
                     isError = errorPrecio,
                     supportingText = {
                         if (errorPrecio) {
-                            if (precio.isEmpty()) {
-                                Text(
-                                    text = "El precio es obligatorio"
-                                )
-                            } else if (precio.toDoubleOrNull() == null) {
-                                Text(
-                                    text = "Ingrese un precio válido"
-                                )
-                            }
-                        } else {
-                            null
+                            Text(
+                                text = if (precio.isBlank()) "El precio es obligatorio"
+                                else "Ingrese un precio válido mayor a 0"
+                            )
                         }
                     },
                 )
             }
 
+            // Descripción
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = "Descripción",
@@ -337,11 +297,7 @@ fun NewProductScreen(
                     modifier = Modifier.fillMaxWidth(),
                     value = descripcion,
                     onValueChange = { descripcion = it },
-                    placeholder = {
-                        Text(
-                            text = "Describe los ingredientes, porciones..."
-                        )
-                    },
+                    placeholder = { Text(text = "Describe los ingredientes, porciones...") },
                     leadingIcon = {
                         Icon(
                             painter = painterResource(R.drawable.ic_edit),
@@ -383,17 +339,24 @@ fun NewProductScreen(
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = VerdeOscuro),
             onClick = {
-                if (nombre.isBlank()) {
-                    errorNombre = true
-                }
-                if (categoria.isEmpty()) {
-                    errorCategoria = true
-                }
-                if (precio.toDoubleOrNull() == null) {
-                    errorPrecio = true
-                }
-                if (!errorNombre && !errorCategoria && !errorPrecio) {
-                    onGuardarSuccess()
+                val precioNumero = precio.aPrecioOrNull()
+
+                errorNombre = nombre.isBlank()
+                errorCategoria = categoria.isEmpty()
+                errorPrecio = precioNumero == null || precioNumero <= 0.0
+
+                if (!errorNombre && !errorCategoria && !errorPrecio && precioNumero != null) {
+                    onGuardar(
+                        Producto(
+                            id = 0, // lo asigna el ViewModel
+                            nombre = nombre.trim(),
+                            categoria = categoria,
+                            precio = precioNumero,
+                            descripcion = descripcion.trim(),
+                            disponible = disponible,
+                            imagenUri = imagenUri,
+                        )
+                    )
                 } else {
                     Toast.makeText(context, "Revisa los campos marcados", Toast.LENGTH_SHORT).show()
                 }
@@ -414,7 +377,7 @@ fun NewProductScreenPreview() {
         NewProductScreen(
             modifier = Modifier.fillMaxSize(),
             onBack = {},
-            onGuardarSuccess = {},
+            onGuardar = {},
         )
     }
 }

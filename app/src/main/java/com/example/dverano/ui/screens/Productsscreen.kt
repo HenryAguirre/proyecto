@@ -2,7 +2,6 @@ package com.example.dverano.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,11 +29,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.dverano.R
-import com.example.dverano.data.model.Oferta
 import com.example.dverano.data.model.Producto
 import com.example.dverano.ui.components.BarraNavegacion
 import com.example.dverano.ui.components.BarraSuperior
@@ -49,12 +46,10 @@ import com.example.dverano.ui.theme.VerdeOscuro
 import com.example.dverano.ui.util.formatearPrecio
 
 @Composable
-fun OffersScreen(
+fun ProductsScreen(
     modifier: Modifier = Modifier,
-    ofertas: List<Oferta>,
-    onBack: () -> Unit,
-    onAgregarOferta: () -> Unit,
-    onOfertaClick: (Oferta) -> Unit, // alterna activa/inactiva
+    productos: List<Producto>,
+    onAgregarProducto: () -> Unit,
     onNavegar: (Int) -> Unit,
 ) {
     Column(
@@ -62,21 +57,21 @@ fun OffersScreen(
             .fillMaxSize()
             .background(FondoPantalla)
     ) {
-        BarraSuperior(titulo = "Ofertas", onBack = onBack)
+        BarraSuperior(titulo = "Productos")
 
         EncabezadoSeccion(
-            titulo = "Productos en promoción",
-            descripcion = "Gestiona los platos que estarán disponibles en la sección de ofertas.",
-            icono = R.drawable.ic_offer,
+            titulo = "Mis productos",
+            descripcion = "Administra los platos de tu carta.",
+            icono = R.drawable.ic_food,
         )
 
         Box(modifier = Modifier.weight(1f)) {
-            if (ofertas.isEmpty()) {
+            if (productos.isEmpty()) {
                 Text(
                     modifier = Modifier
                         .align(Alignment.Center)
                         .padding(32.dp),
-                    text = "Aún no hay ofertas.\nToca + para crear la primera.",
+                    text = "Aún no tienes productos.\nToca + para agregar el primero.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextoSecundario,
                     textAlign = TextAlign.Center
@@ -87,11 +82,8 @@ fun OffersScreen(
                     contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(ofertas, key = { it.id }) { oferta ->
-                        OfertaItem(
-                            oferta = oferta,
-                            onClick = { onOfertaClick(oferta) }
-                        )
+                    items(productos, key = { it.id }) { producto ->
+                        ProductoItem(producto = producto)
                     }
                 }
             }
@@ -100,31 +92,26 @@ fun OffersScreen(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(16.dp),
-                onClick = onAgregarOferta,
+                onClick = onAgregarProducto,
                 shape = CircleShape,
                 containerColor = VerdeOscuro,
                 contentColor = Color.White
             ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_add),
-                    contentDescription = "Agregar oferta",
+                    contentDescription = "Agregar producto",
                 )
             }
         }
 
-        BarraNavegacion(itemSeleccionado = 2, onNavegar = onNavegar)
+        BarraNavegacion(itemSeleccionado = 1, onNavegar = onNavegar)
     }
 }
 
 @Composable
-private fun OfertaItem(
-    oferta: Oferta,
-    onClick: () -> Unit,
-) {
+private fun ProductoItem(producto: Producto) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(1.dp, BordeCampo)
@@ -135,62 +122,49 @@ private fun OfertaItem(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             ProductoImagen(
-                producto = oferta.producto,
+                producto = producto,
                 modifier = Modifier
                     .size(64.dp)
                     .clip(RoundedCornerShape(8.dp)),
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = oferta.producto.nombre,
+                    text = producto.nombre,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = oferta.producto.categoria,
+                    text = producto.categoria,
                     style = MaterialTheme.typography.bodySmall,
                     color = TextoSecundario
                 )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = formatearPrecio(oferta.precioOferta),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = VerdeOscuro
-                    )
-                    Text(
-                        text = formatearPrecio(oferta.precioOriginal),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextoSecundario,
-                        textDecoration = TextDecoration.LineThrough
-                    )
-                }
+                Text(
+                    text = formatearPrecio(producto.precio),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = VerdeOscuro
+                )
             }
-            EtiquetaEstado(activo = oferta.activa)
+            EtiquetaEstado(
+                activo = producto.disponible,
+                textoActivo = "Disponible",
+                textoInactivo = "Agotado",
+            )
         }
     }
 }
 
 @Preview(showBackground = true)
 @Composable
-fun OffersScreenPreview() {
-    val p1 = Producto(1, "Hamburguesa Especial", "Platos de fondo", 15.0, "", true, imagenRes = R.drawable.img_comida1)
-    val p2 = Producto(2, "Combo Familiar", "Platos de fondo", 55.0, "", true, imagenRes = R.drawable.img_comida2)
-    val p3 = Producto(3, "Ensalada Fresca", "Entradas", 12.0, "", true, imagenRes = R.drawable.img_comida3)
+fun ProductsScreenPreview() {
     DVeranoTheme {
-        OffersScreen(
+        ProductsScreen(
             modifier = Modifier.fillMaxSize(),
-            ofertas = listOf(
-                Oferta(1, p1, 12.0, true),
-                Oferta(2, p2, 45.0, true),
-                Oferta(3, p3, 9.0, false),
+            productos = listOf(
+                Producto(1, "Hamburguesa Especial", "Platos de fondo", 15.0, "", true, imagenRes = R.drawable.img_comida1),
+                Producto(2, "Ensalada Fresca", "Entradas", 12.0, "", false, imagenRes = R.drawable.img_comida3),
             ),
-            onBack = {},
-            onAgregarOferta = {},
-            onOfertaClick = {},
+            onAgregarProducto = {},
             onNavegar = {},
         )
     }
